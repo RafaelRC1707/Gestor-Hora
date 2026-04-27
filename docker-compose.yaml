@@ -1,0 +1,53 @@
+services:
+
+  postgres_local:
+    image: postgres:15-alpine
+    container_name: gestorhora_
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gestorhora_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gh_networks
+  backend:
+    networks:
+      - gh_networks
+    build: 
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: gh_back
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:$POSTGRES_PASSWORD
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres_local:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    restart: unless-stopped
+  
+  frontend:
+    build: 
+      context: ./front1
+      dockerfile: Dockerfile
+    container_name: gh_front
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - gh_networks 
+    
+networks:
+    gh_networks:
+      driver: bridge
+      enable_ipv6: false
+      ipam:
+        config:
+          - subnet: 172.28.0.0/16
+            gateway: 172.28.0.1
